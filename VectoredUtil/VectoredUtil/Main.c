@@ -353,7 +353,7 @@ int wmain() {
 		printf("-overwrite <type> <index> <payload_file>: Overwrite VEH (type 0)/VCH (type 1) at specified index (1 is first handler and so on) in a given process (use -proc) with specified shellcode\n\n");
 		printf("Example1: VectoredUtil.exe -proc 1220 -dump 100\n");
 		printf("Example2: VectoredUtil.exe -proc 1220 -overwrite 0 1 C:\\payload.bin\n");
-		printf("Example1: VectoredUtil.exe -enum-veh\n");
+		printf("Example3: VectoredUtil.exe -enum-veh\n");
 		return -1;
 	}
 

